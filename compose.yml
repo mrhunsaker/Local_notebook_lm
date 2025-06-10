@@ -1,0 +1,52 @@
+version: "3.8"
+services:
+  solr:
+    image: solr:9.6
+    ports:
+      - "8983:8983"
+    volumes:
+      - solr_data:/var/solr
+      - ./scripts/configure-solr.sh:/opt/configure-solr.sh:ro
+    command:
+      - solr-precreate
+      - documents
+
+  couchdb:
+    image: couchdb:3.3
+    ports:
+      - "5984:5984"
+    volumes:
+      - couchdb_data:/opt/couchdb/data
+    environment:
+      - COUCHDB_USER=admin
+      - COUCHDB_PASSWORD=password
+
+  rag-app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      - solr
+      - couchdb
+    environment:
+      - rag.config.graniteModelPath=/app/models/granite-8b-instruct-v3.2.Q4_K_M.gguf
+      - rag.config.documentsPath=/app/source-documents
+      - rag.config.solrUrl=http://solr:8983/solr
+      - rag.config.couchDbUrl=http://couchdb:5984
+      - rag.config.couchDbUsername=admin
+      - rag.config.couchDbPassword=password
+      - rag.config.couchDbDatabase=rag_conversations
+      - rag.config.chunkSize=1000
+      - rag.config.chunkOverlap=200
+      - rag.config.embeddingDimension=384
+      - rag.config.tesseractLanguages=eng+fra+deu
+      - rag.config.ocrEnabled=true
+    volumes:
+      - ./models:/app/models
+      - ./source-documents:/app/source-documents
+    ports:
+      - "8080:8080" # If you want to access the embedded Tomcat server
+
+volumes:
+  solr_data:
+  couchdb_data:
